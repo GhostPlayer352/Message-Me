@@ -27,9 +27,6 @@
             font-size: 12px;
             border-radius: 5px;
         }
-        textarea::placeholder {
-            color: #aaaaaa;
-        }
         button {
             padding: 10px 20px;
             background-color: #28a745;
@@ -38,132 +35,37 @@
             cursor: pointer;
             border-radius: 5px;
             font-size: 16px;
+            margin: 5px;
         }
         button:hover {
             background-color: #218838;
         }
-
-        /* New Custom Dialog */
-        .dialog-container {
+        .modal {
             display: none;
             position: fixed;
-            top: 50%;
             left: 50%;
+            top: 50%;
             transform: translate(-50%, -50%);
-            background-color: #1e1e1e;
+            background: #1e1e1e;
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.2);
             width: 300px;
             text-align: center;
-            z-index: 1000;
-            animation: fadeIn 0.3s ease-in-out;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
         }
-        .dialog-message {
-            font-size: 16px;
-            margin-bottom: 15px;
-        }
-        .dialog-button {
-            padding: 10px 15px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
+        .modal button {
+            margin: 5px;
+            padding: 8px 15px;
             font-size: 14px;
+            border-radius: 5px;
         }
-        .dialog-button:hover {
-            background-color: #218838;
+        .modal button.cancel {
+            background-color: #dc3545;
         }
-
-        /* Overlay */
-        .dialog-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            z-index: 999;
-        }
-
-        /* Fade-in Animation */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -55%);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, -50%);
-            }
+        .modal button.ok {
+            background-color: #28a745;
         }
     </style>
-    <script>
-        function getCurrentTime() {
-            let now = new Date();
-            let options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
-            return now.toLocaleString('en-US', options);
-        }
-
-        function showDialog(message) {
-            document.getElementById("dialog-message").innerText = message;
-            document.getElementById("dialog-container").style.display = "block";
-            document.getElementById("dialog-overlay").style.display = "block";
-        }
-
-        function closeDialog() {
-            document.getElementById("dialog-container").style.display = "none";
-            document.getElementById("dialog-overlay").style.display = "none";
-        }
-
-        async function sendMessage() {
-            let message = document.getElementById("message").value.trim();
-            if (!message) {
-                showDialog("Message cannot be empty!");
-                return;
-            }
-
-            let firebaseBaseUrl = "https://messages-e52bf-default-rtdb.firebaseio.com";
-            let messageIdUrl = `${firebaseBaseUrl}/Current_Message_ID.json`;
-
-            try {
-                // 1. Get the current message ID
-                let response = await fetch(messageIdUrl);
-                let currentId = await response.json();
-                if (currentId === null) currentId = 0; // Default if ID does not exist
-
-                let nextMessageKey = `Message${currentId + 1}`;
-                let currentTime = getCurrentTime();
-
-                // 2. Store the new message under the correct key with time
-                let updateMessageUrl = `${firebaseBaseUrl}/Messages/${nextMessageKey}.json`;
-                await fetch(updateMessageUrl, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                        "Message": message,
-                        "Time": currentTime
-                    }),
-                    headers: { "Content-Type": "application/json" }
-                });
-
-                // 3. Update the Current_Message_ID in Firebase
-                let updateIdUrl = `${firebaseBaseUrl}/Current_Message_ID.json`;
-                await fetch(updateIdUrl, {
-                    method: "PUT",
-                    body: JSON.stringify(currentId + 1),
-                    headers: { "Content-Type": "application/json" }
-                });
-
-                showDialog("Message sent successfully!");
-                document.getElementById("message").value = "";
-            } catch (error) {
-                console.error("Error:", error);
-                showDialog("Failed to send message. Check console for details.");
-            }
-        }
-    </script>
 </head>
 <body>
 
@@ -171,16 +73,158 @@
     <p class="info">Hello, if you have a message for me, please message me here anonymously.</p>
     
     <textarea id="message" placeholder="Type your message..."></textarea><br>
-    <button onclick="sendMessage()">Send</button>
+    <button onclick="sendMessage()">Send</button><br><br>
+    <button onclick="openPinDialog()">View Messages</button>
 
-    <!-- Dialog Overlay -->
-    <div id="dialog-overlay" class="dialog-overlay"></div>
-
-    <!-- New Custom Dialog -->
-    <div id="dialog-container" class="dialog-container">
-        <p id="dialog-message" class="dialog-message"></p>
-        <button class="dialog-button" onclick="closeDialog()">OK</button>
+    <!-- Empty Message Warning Dialog -->
+    <div id="emptyMessageDialog" class="modal">
+        <h3>Warning</h3>
+        <p>Message cannot be empty!</p>
+        <button class="ok" onclick="closeEmptyMessageDialog()">OK</button>
     </div>
+
+    <!-- Message Sent Confirmation Dialog -->
+    <div id="sentDialog" class="modal">
+        <h3>Message Sent</h3>
+        <p>Your message has been sent successfully!</p>
+        <button class="ok" onclick="closeSentDialog()">OK</button>
+    </div>
+
+    <!-- PIN Entry Dialog -->
+    <div id="pinDialog" class="modal">
+        <h3>Enter PIN</h3>
+        <input type="password" id="pinInput" placeholder="Enter PIN">
+        <br>
+        <button class="ok" onclick="checkPin()">Submit</button>
+        <button class="cancel" onclick="closePinDialog()">Cancel</button>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div id="deleteDialog" class="modal">
+        <h3>Confirm Delete</h3>
+        <p>Are you sure you want to delete this message?</p>
+        <button class="ok" id="confirmDeleteBtn">Yes</button>
+        <button class="cancel" onclick="closeDeleteDialog()">No</button>
+    </div>
+
+    <!-- Messages Display -->
+    <div id="messagesList"></div>
+
+    <script>
+        const firebaseBaseUrl = "https://messages-e52bf-default-rtdb.firebaseio.com";
+        let deleteMessageKey = null;
+
+        function getCurrentTime() {
+            let now = new Date();
+            let options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+            return now.toLocaleString('en-US', options);
+        }
+
+        async function sendMessage() {
+            let message = document.getElementById("message").value.trim();
+            if (!message) {
+                document.getElementById("emptyMessageDialog").style.display = "block";
+                return;
+            }
+
+            let messageIdUrl = `${firebaseBaseUrl}/Current_Message_ID.json`;
+
+            try {
+                let response = await fetch(messageIdUrl);
+                let currentId = await response.json();
+                if (currentId === null) currentId = 0;
+
+                let nextMessageKey = `Message${currentId + 1}`;
+                let currentTime = getCurrentTime();
+
+                let updateMessageUrl = `${firebaseBaseUrl}/Messages/${nextMessageKey}.json`;
+                await fetch(updateMessageUrl, {
+                    method: "PUT",
+                    body: JSON.stringify({ "Message": message, "Time": currentTime }),
+                    headers: { "Content-Type": "application/json" }
+                });
+
+                let updateIdUrl = `${firebaseBaseUrl}/Current_Message_ID.json`;
+                await fetch(updateIdUrl, {
+                    method: "PUT",
+                    body: JSON.stringify(currentId + 1),
+                    headers: { "Content-Type": "application/json" }
+                });
+
+                document.getElementById("message").value = "";
+                document.getElementById("sentDialog").style.display = "block";
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }
+
+        function closeSentDialog() {
+            document.getElementById("sentDialog").style.display = "none";
+        }
+
+        function closeEmptyMessageDialog() {
+            document.getElementById("emptyMessageDialog").style.display = "none";
+        }
+
+        function openPinDialog() {
+            document.getElementById("pinDialog").style.display = "block";
+        }
+
+        function closePinDialog() {
+            document.getElementById("pinDialog").style.display = "none";
+        }
+
+        async function checkPin() {
+            let pin = document.getElementById("pinInput").value;
+            if (pin === "8818") {
+                closePinDialog();
+                await viewMessages();
+            } else {
+                alert("Incorrect PIN!");
+            }
+        }
+
+        async function viewMessages() {
+            let messagesUrl = `${firebaseBaseUrl}/Messages.json`;
+
+            try {
+                let response = await fetch(messagesUrl);
+                let messages = await response.json();
+
+                let messageList = document.getElementById("messagesList");
+                messageList.innerHTML = "";
+
+                for (let key in messages) {
+                    let msg = messages[key];
+                    let messageItem = document.createElement("div");
+                    messageItem.innerHTML = `
+                        <p><strong>${msg.Message}</strong></p>
+                    <p style="color: gray; font-size: 14px;">${msg.Time}</p>
+                    <button onclick="openDeleteDialog('${key}')">Delete</button>
+                    <hr>
+                `;
+                    messageList.appendChild(messageItem);
+                }
+            } catch (error) {
+                console.error("Error loading messages:", error);
+            }
+        }
+
+        function openDeleteDialog(key) {
+            deleteMessageKey = key;
+            document.getElementById("deleteDialog").style.display = "block";
+        }
+
+        function closeDeleteDialog() {
+            document.getElementById("deleteDialog").style.display = "none";
+        }
+
+        document.getElementById("confirmDeleteBtn").addEventListener("click", async () => {
+            await fetch(`${firebaseBaseUrl}/Messages/${deleteMessageKey}.json`, { method: "DELETE" });
+            closeDeleteDialog();
+            viewMessages();
+        });
+    </script>
 
 </body>
 </html>
