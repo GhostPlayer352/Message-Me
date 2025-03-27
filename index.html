@@ -180,10 +180,34 @@
                 closePinDialog();
                 await viewMessages();
             } else {
-                alert("Incorrect PIN!");
+                openWrongPinDialog();
             }
         }
 
+        function openWrongPinDialog() {
+            let dialog = document.createElement("div");
+            dialog.className = "wrong-pin-dialog";
+            dialog.style.position = "fixed";
+            dialog.style.top = "50%";
+            dialog.style.left = "50%";
+            dialog.style.transform = "translate(-50%, -50%)";
+            dialog.style.background = "#1e1e1e";
+            dialog.style.color = "white";
+            dialog.style.padding = "20px";
+            dialog.style.borderRadius = "10px";
+            dialog.style.textAlign = "center";
+            dialog.style.boxShadow = "0 4px 8px rgba(255, 255, 255, 0.2)";
+
+            dialog.innerHTML = `
+                <div class="dialog-content">
+                    <p>Incorrect PIN. Please try again!</p>
+                    <button style="padding: 8px 15px; background-color: #dc3545; border: none; color: white; cursor: pointer; border-radius: 5px;" 
+                        onclick="this.parentElement.parentElement.remove()">OK</button>
+                </div>
+            `;
+            document.body.appendChild(dialog);
+        }
+        
         async function viewMessages() {
             let messagesUrl = `${firebaseBaseUrl}/Messages.json`;
 
